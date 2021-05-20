@@ -22,74 +22,67 @@ public class HelperKata {
 
     public static Flux<CouponDetailDto> getListFromBase64File(final String fileBase64) {
 
+        return nombreporcambiar2(createFluxFrom(fileBase64));
+
+    }
+
+    private static Flux<CouponDetailDto> nombreporcambiar2(Flux<String > fail){
         AtomicInteger counter = new AtomicInteger(0);
         String characterSeparated = FileCSVEnum.CHARACTER_DEFAULT.getId();
         Set<String> codes = new HashSet<>();
-
-        var s = createFluxFrom(fileBase64);
-
-
-/*
-        try (InputStream inputStream = new ByteArrayInputStream(decodeBase64(fileBase64));
-             BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
-        ) {
-            AtomicInteger counter = new AtomicInteger(0);
-            String characterSeparated = FileCSVEnum.CHARACTER_DEFAULT.getId();
-            Set<String> codes = new HashSet<>();
-            ANTERIOR_BONO = null;
-            return Flux.fromIterable(
-                    bufferedReader.lines().skip(1)
+            return fail.skip(1)
                             .map(line -> getTupleOfLine(line, line.split(characterSeparated), characterSeparated))
-                            .map(tuple -> {
-                                String dateValidated = null;
-                                String errorMessage = null;
-                                String bonoForObject = null;
-                                String bonoEnviado;
+                            .map(tuple -> nombreporcambiar(counter,codes,tuple));
 
-                                if (tuple.getT1().isBlank() || tuple.getT2().isBlank()) {
-                                    errorMessage = ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString();
-                                } else if (!codes.add(tuple.getT1())) {
-                                    errorMessage = ExperienceErrorsEnum.FILE_ERROR_CODE_DUPLICATE.toString();
-                                } else if (!validateDateRegex(tuple.getT2())) {
-                                    errorMessage = ExperienceErrorsEnum.FILE_ERROR_DATE_PARSE.toString();
-                                } else if (validateDateIsMinor(tuple.getT2())) {
-                                    errorMessage = ExperienceErrorsEnum.FILE_DATE_IS_MINOR_OR_EQUALS.toString();
-                                } else {
-                                    dateValidated = tuple.getT2();
-                                }
+    }
 
-                                bonoEnviado = tuple.getT1();
-                                if (ANTERIOR_BONO == null || ANTERIOR_BONO.equals("")) {
-                                    ANTERIOR_BONO = typeBono(bonoEnviado);
-                                    if (ANTERIOR_BONO == "") {
-                                        bonoForObject = null;
-                                    } else {
-                                        bonoForObject = bonoEnviado;
-                                    }
-                                } else if (ANTERIOR_BONO.equals(typeBono(bonoEnviado))) {
-                                    bonoForObject = bonoEnviado;
-                                } else if (!ANTERIOR_BONO.equals(typeBono(bonoEnviado))) {
-                                    bonoForObject = null;
-                                }
+    private static CouponDetailDto nombreporcambiar(AtomicInteger counter, Set<String> codes, Tuple2<String, String> tuple){
+        String dateValidated = null;
+        String errorMessage = null;
+        String bonoForObject = null;
+        String bonoEnviado;
 
-                                return CouponDetailDto.aCouponDetailDto()
-                                        .withCode(bonoForObject)
-                                        .withDueDate(dateValidated)
-                                        .withNumberLine(counter.incrementAndGet())
-                                        .withMessageError(errorMessage)
-                                        .withTotalLinesFile(1)
-                                        .build();
-                            }).collect(Collectors.toList())
-            );
-
-        } catch (IOException e) {
-            e.printStackTrace();
+        if (tuple.getT1().isBlank() || tuple.getT2().isBlank()) {
+            errorMessage = ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString();
+        } else if (!codes.add(tuple.getT1())) {
+            errorMessage = ExperienceErrorsEnum.FILE_ERROR_CODE_DUPLICATE.toString();
+        } else if (!validateDateRegex(tuple.getT2())) {
+            errorMessage = ExperienceErrorsEnum.FILE_ERROR_DATE_PARSE.toString();
+        } else if (validateDateIsMinor(tuple.getT2())) {
+            errorMessage = ExperienceErrorsEnum.FILE_DATE_IS_MINOR_OR_EQUALS.toString();
+        } else {
+            dateValidated = tuple.getT2();
         }
 
+        bonoForObject = bonoIsSend(tuple, bonoForObject);
 
- */
-        return Flux.empty();
+        return CouponDetailDto.aCouponDetailDto()
+                .withCode(bonoForObject)
+                .withDueDate(dateValidated)
+                .withNumberLine(counter.incrementAndGet())
+                .withMessageError(errorMessage)
+                .withTotalLinesFile(1)
+                .build();
     }
+
+    private static String bonoIsSend(Tuple2<String, String> tuple, String bonoForObject) {
+        String bonoEnviado;
+        bonoEnviado = tuple.getT1();
+        if (ANTERIOR_BONO == null || ANTERIOR_BONO.equals("")) {
+            ANTERIOR_BONO = typeBono(bonoEnviado);
+            if (ANTERIOR_BONO == "") {
+                bonoForObject = null;
+            } else {
+                bonoForObject = bonoEnviado;
+            }
+        } else if (ANTERIOR_BONO.equals(typeBono(bonoEnviado))) {
+            bonoForObject = bonoEnviado;
+        } else if (!ANTERIOR_BONO.equals(typeBono(bonoEnviado))) {
+            bonoForObject = null;
+        }
+        return bonoForObject;
+    }
+
 
     private static Flux<String> createFluxFrom(String fileBase64) {
         return Flux.using(
@@ -106,29 +99,29 @@ public class HelperKata {
     public static String typeBono(String bonoIn) {
 
       return  validateEan13(bonoIn) ? ValidateCouponEnum.EAN_13.getTypeOfEnum()
-               : vlidateEan39(bonoIn) ? ValidateCouponEnum.EAN_39.getTypeOfEnum()
+               : validateEan39(bonoIn) ? ValidateCouponEnum.EAN_39.getTypeOfEnum()
                : ValidateCouponEnum.ALPHANUMERIC.getTypeOfEnum();
 
     }
 
-    private static boolean vlidateEan39(String bonoIn) {
+    private static boolean validateEan39(String bonoIn) {
         return bonoIn.startsWith("*")
-                && cambiarnombre(bonoIn.replace("*", "").length(), 1)
-                && cambiarnombre2(bonoIn.replace("*", "").length(),43);
+                && tamañoCodigoBonoMayorQue(bonoIn.replace("*", "").length(), 1)
+                && tamañoCodigoBonoMenorQue(bonoIn.replace("*", "").length(),43);
     }
 
     private static boolean validateEan13(String bonoIn) {
         return bonoIn.chars().allMatch(Character::isDigit)
-                  && cambiarnombre(bonoIn.length(), 12)
-                  && cambiarnombre2(bonoIn.length(), 13);
+                  && tamañoCodigoBonoMayorQue(bonoIn.length(), 12)
+                  && tamañoCodigoBonoMenorQue(bonoIn.length(), 13);
     }
 
-    private static boolean cambiarnombre(int bonoLength, int number){
+    private static boolean tamañoCodigoBonoMayorQue(int bonoLength, int number){
         return bonoLength >= number;
     }
 
 
-    private static boolean cambiarnombre2(int bonoLength, int number){
+    private static boolean tamañoCodigoBonoMenorQue(int bonoLength, int number){
         return bonoLength <= number;
     }
 
@@ -147,9 +140,13 @@ public class HelperKata {
     private static Tuple2<String, String> getTupleOfLine(String line, String[] array, String characterSeparated) {
         return Objects.isNull(array) || array.length == 0
                 ? Tuples.of(EMPTY_STRING, EMPTY_STRING)
-                : array.length < 2
-                ? comparaTuplas(line, array, characterSeparated)
-                : Tuples.of(array[0], array[1]);
+                : comparaTuplas2(line, array, characterSeparated);
+    }
+
+    private static Tuple2<String, String> comparaTuplas2(String line, String[] array, String characterSeparated) {
+        return array.length < 2
+        ? comparaTuplas(line, array, characterSeparated)
+        : Tuples.of(array[0], array[1]);
     }
 
     private static Tuple2<String, String> comparaTuplas(String line, String[] array, String characterSeparated) {
