@@ -37,24 +37,17 @@ public class HelperKata {
 
     private static CouponDetailDto validarErroresDelBono(AtomicInteger counter, Set<String> codes, Tuple2<String, String> tuple){
         String dateValidated = null;
-        String errorMessage = null;
+        String errorMessage;
         String bonoForObject;
         String bonoEnviado;
 
-        if (tuple.getT1().isBlank() || tuple.getT2().isBlank()) {
-            errorMessage = ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString();
-        } else if (!codes.add(tuple.getT1())) {
-            errorMessage = ExperienceErrorsEnum.FILE_ERROR_CODE_DUPLICATE.toString();
-        } else if (!validateDateRegex(tuple.getT2())) {
-            errorMessage = ExperienceErrorsEnum.FILE_ERROR_DATE_PARSE.toString();
-        } else if (validateDateIsMinor(tuple.getT2())) {
-            errorMessage = ExperienceErrorsEnum.FILE_DATE_IS_MINOR_OR_EQUALS.toString();
-        } else {
-            dateValidated = tuple.getT2();
+        errorMessage = fileError(codes, tuple); //asigno cuando coloco la variable y el signo = y el metodo que le he creado
+        if (errorMessage.equals(null)){
+            dateValidated = tuple.getT2(); // si el fileError llega null, se lo asigna a dateValidate
         }
+
         bonoEnviado = tuple.getT1();
         bonoForObject = bonoIsSend(bonoEnviado);
-
 
         return CouponDetailDto.aCouponDetailDto()
                 .withCode(bonoForObject)
@@ -63,6 +56,30 @@ public class HelperKata {
                 .withMessageError(errorMessage)
                 .withTotalLinesFile(1)
                 .build();
+    }
+
+    private static String fileError(Set<String> codes, Tuple2<String, String> tuple) {
+       //esta es una forma de transformar un condicional anidado (varios if else) para reducir la complejidad ciclomatica.
+        // o mejorar el flujo de datos
+        Map<String, Boolean> error = new LinkedHashMap<String, Boolean>();
+
+        error.put(ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString(),compara2Objetos(tuple));
+        error.put(ExperienceErrorsEnum.FILE_ERROR_CODE_DUPLICATE.toString(),!codes.add(tuple.getT1()));
+        error.put(ExperienceErrorsEnum.FILE_ERROR_DATE_PARSE.toString(),!validateDateRegex(tuple.getT2()));
+        error.put(ExperienceErrorsEnum.FILE_DATE_IS_MINOR_OR_EQUALS.toString(),validateDateIsMinor(tuple.getT2()));
+
+        for (Map.Entry<String, Boolean> bonoError :
+                error.entrySet()) {
+            if (bonoError.getValue()){ //aqui devuelve un booleano
+                return bonoError.getKey(); //aqui devuelve la llave en este caso el error/--/la llave no se repite, en este caso se pone como llave el error porque el no se va a repetir.
+            }
+        }
+
+        return null;
+    }
+
+    private static boolean compara2Objetos(Tuple2<String, String> tuple) {
+        return tuple.getT1().isBlank() || tuple.getT2().isBlank();
     }
 
     private static String bonoIsSend(String bonoEnviado) {
@@ -92,9 +109,14 @@ public class HelperKata {
     }
 
     public static String typeBono(String bonoIn) {
-      return  validateEan13(bonoIn) ? ValidateCouponEnum.EAN_13.getTypeOfEnum()
-               : validateEan39(bonoIn) ? ValidateCouponEnum.EAN_39.getTypeOfEnum()
-               : ValidateCouponEnum.ALPHANUMERIC.getTypeOfEnum();
+      return  validateEan13(bonoIn)
+              ? ValidateCouponEnum.EAN_13.getTypeOfEnum()
+               : validateAlphanumeric(bonoIn);
+    }
+
+    private static String validateAlphanumeric(String bonoIn) {
+        return validateEan39(bonoIn) ? ValidateCouponEnum.EAN_39.getTypeOfEnum()
+                : ValidateCouponEnum.ALPHANUMERIC.getTypeOfEnum();
     }
 
     private static boolean validateEan39(String bonoIn) {
