@@ -11,7 +11,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
@@ -22,24 +21,24 @@ public class HelperKata {
 
     public static Flux<CouponDetailDto> getListFromBase64File(final String fileBase64) {
 
-        return nombreporcambiar2(createFluxFrom(fileBase64));
+        return separarCaracteres(createFluxFrom(fileBase64));
 
     }
 
-    private static Flux<CouponDetailDto> nombreporcambiar2(Flux<String > fail){
+    private static Flux<CouponDetailDto> separarCaracteres(Flux<String > lineaASeparar){
         AtomicInteger counter = new AtomicInteger(0);
         String characterSeparated = FileCSVEnum.CHARACTER_DEFAULT.getId();
         Set<String> codes = new HashSet<>();
-            return fail.skip(1)
+            return lineaASeparar.skip(1)
                             .map(line -> getTupleOfLine(line, line.split(characterSeparated), characterSeparated))
-                            .map(tuple -> nombreporcambiar(counter,codes,tuple));
+                            .map(tuple -> validarErroresDelBono(counter,codes,tuple));
 
     }
 
-    private static CouponDetailDto nombreporcambiar(AtomicInteger counter, Set<String> codes, Tuple2<String, String> tuple){
+    private static CouponDetailDto validarErroresDelBono(AtomicInteger counter, Set<String> codes, Tuple2<String, String> tuple){
         String dateValidated = null;
         String errorMessage = null;
-        String bonoForObject = null;
+        String bonoForObject;
         String bonoEnviado;
 
         if (tuple.getT1().isBlank() || tuple.getT2().isBlank()) {
@@ -53,8 +52,9 @@ public class HelperKata {
         } else {
             dateValidated = tuple.getT2();
         }
+        bonoEnviado = tuple.getT1();
+        bonoForObject = bonoIsSend(bonoEnviado);
 
-        bonoForObject = bonoIsSend(tuple, bonoForObject);
 
         return CouponDetailDto.aCouponDetailDto()
                 .withCode(bonoForObject)
@@ -65,24 +65,21 @@ public class HelperKata {
                 .build();
     }
 
-    private static String bonoIsSend(Tuple2<String, String> tuple, String bonoForObject) {
-        String bonoEnviado;
-        bonoEnviado = tuple.getT1();
-        if (ANTERIOR_BONO == null || ANTERIOR_BONO.equals("")) {
+    private static String bonoIsSend(String bonoEnviado) {
+
+        String bonoForObject = null;
+
+        if (isBonoNull(bonoEnviado)) {
             ANTERIOR_BONO = typeBono(bonoEnviado);
-            if (ANTERIOR_BONO == "") {
-                bonoForObject = null;
-            } else {
-                bonoForObject = bonoEnviado;
-            }
-        } else if (ANTERIOR_BONO.equals(typeBono(bonoEnviado))) {
             bonoForObject = bonoEnviado;
-        } else if (!ANTERIOR_BONO.equals(typeBono(bonoEnviado))) {
-            bonoForObject = null;
         }
+
         return bonoForObject;
     }
 
+    private static boolean isBonoNull(String bonoEnviado) {
+        return ANTERIOR_BONO == null || ANTERIOR_BONO.equals(typeBono(bonoEnviado));
+    }
 
     private static Flux<String> createFluxFrom(String fileBase64) {
         return Flux.using(
@@ -94,14 +91,10 @@ public class HelperKata {
         );
     }
 
-
-
     public static String typeBono(String bonoIn) {
-
       return  validateEan13(bonoIn) ? ValidateCouponEnum.EAN_13.getTypeOfEnum()
                : validateEan39(bonoIn) ? ValidateCouponEnum.EAN_39.getTypeOfEnum()
                : ValidateCouponEnum.ALPHANUMERIC.getTypeOfEnum();
-
     }
 
     private static boolean validateEan39(String bonoIn) {
