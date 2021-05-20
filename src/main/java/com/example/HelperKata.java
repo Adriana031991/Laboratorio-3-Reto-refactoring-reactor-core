@@ -153,11 +153,9 @@ public class HelperKata {
             SimpleDateFormat sdf = new SimpleDateFormat(FileCSVEnum.PATTERN_SIMPLE_DATE_FORMAT.getId());
             Date dateActual = sdf.parse(sdf.format(new Date()));
             Date dateCompare = sdf.parse(dateForValidate);
-            if (dateCompare.compareTo(dateActual) <= 0)
-                return true;
+            return tamañoCodigoBonoMenorQue(dateCompare.compareTo(dateActual),0 );
         } catch (Exception e) {
             e.printStackTrace();
-            return false;
         }
         return false;
     }
