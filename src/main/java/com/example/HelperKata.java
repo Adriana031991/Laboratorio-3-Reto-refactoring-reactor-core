@@ -29,11 +29,11 @@ public class HelperKata {
         return Optional.of(modelCoupon)
                 .filter(coupon -> coupon.getCodigo().isBlank()|| coupon.getFecha().isBlank())
                 .map(modelCoupon1 -> CouponDetailDto.aCouponDetailDto()
-                .withCode(null)
-                .withDueDate(null)
-                .withNumberLine(counter.incrementAndGet())
-                .withTotalLinesFile(1)
-                .withMessageError(ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString()))
+                        .withCode(null)
+                        .withDueDate(null)
+                        .withNumberLine(counter.incrementAndGet())
+                        .withTotalLinesFile(1)
+                        .withMessageError(ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString()))
                 .orElseGet(() -> CouponDetailDto.aCouponDetailDto()
                         .withCode(modelCoupon.getCodigo())
                         .withDueDate(modelCoupon.getFecha())
@@ -87,16 +87,16 @@ public class HelperKata {
                 .map(date -> couponDetailDto.withDueDate(null))
                 .filter(coupon -> coupon.getMessageError().isBlank())
                 .map(couponDetailDto1 -> couponDetailDto.withMessageError(ExperienceErrorsEnum.FILE_DATE_IS_MINOR_OR_EQUALS.toString())
-                .build())
+                        .build())
                 .orElseGet(() -> couponDetailDto.build());
 
     }
 
 
     private static boolean hasAllColumns(List<String> columns) {
-            return columns
-                    .stream()
-                    .noneMatch(String::isBlank);
+        return columns
+                .stream()
+                .noneMatch(String::isBlank);
     }
 
     private static boolean hasCode(String line) {
