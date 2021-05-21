@@ -32,7 +32,6 @@ public class HelperKata {
             return lineaASeparar.skip(1)
                             .map(line -> getTupleOfLine(line, line.split(characterSeparated), characterSeparated))
                             .map(tuple -> validarErroresDelBono(counter,codes,tuple));
-
     }
 
     private static CouponDetailDto validarErroresDelBono(AtomicInteger counter, Set<String> codes, Tuple2<String, String> tuple){
