@@ -40,9 +40,9 @@ public class HelperKata {
         String bonoForObject;
         String bonoEnviado;
 
-        errorMessage = fileError(codes, tuple); //asigno cuando coloco la variable y el signo = y el metodo que le he creado
+        errorMessage = fileError(codes, tuple);
         if (errorMessage.equals(null)){
-            dateValidated = tuple.getT2(); // si el fileError llega null, se lo asigna a dateValidate
+            dateValidated = tuple.getT2();
         }
 
         bonoEnviado = tuple.getT1();
@@ -58,8 +58,7 @@ public class HelperKata {
     }
 
     private static String fileError(Set<String> codes, Tuple2<String, String> tuple) {
-       //esta es una forma de transformar un condicional anidado (varios if else) para reducir la complejidad ciclomatica.
-        // o mejorar el flujo de datos
+
         Map<String, Boolean> error = new LinkedHashMap<String, Boolean>();
 
         error.put(ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString(),compara2Objetos(tuple));
@@ -69,8 +68,8 @@ public class HelperKata {
 
         for (Map.Entry<String, Boolean> bonoError :
                 error.entrySet()) {
-            if (bonoError.getValue()){ //aqui devuelve un booleano
-                return bonoError.getKey(); //aqui devuelve la llave en este caso el error/--/la llave no se repite, en este caso se pone como llave el error porque el no se va a repetir.
+            if (bonoError.getValue()){
+                return bonoError.getKey();
             }
         }
 
