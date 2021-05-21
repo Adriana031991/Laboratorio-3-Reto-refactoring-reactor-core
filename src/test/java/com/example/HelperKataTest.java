@@ -40,7 +40,7 @@ class HelperKataTest {
                         .build())
                 .expectNext( CouponDetailDto.aCouponDetailDto()
                         .withCode("1111")
-                        .withDueDate(null)
+                        .withDueDate("13/12/2022")
                         .withNumberLine(5)
                         .withMessageError("FILE_ERROR_CODE_DUPLICATE")
                         .withTotalLinesFile(1)

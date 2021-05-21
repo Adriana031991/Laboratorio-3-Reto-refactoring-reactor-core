@@ -2,9 +2,6 @@ package com.example;
 
 
 import reactor.core.publisher.Flux;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
-
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -15,102 +12,112 @@ import java.util.stream.Stream;
 
 
 public class HelperKata {
-    private static final  String EMPTY_STRING = "";
-    private static String ANTERIOR_BONO = null;
-
+    private static final String EMPTY_STRING = "";
+    private static final String CHARACTER_SEPARATED = FileCSVEnum.CHARACTER_DEFAULT.getId();
+    private static final Set<String> codes = new HashSet<>();
+    private static AtomicInteger counter = new AtomicInteger(0);
 
     public static Flux<CouponDetailDto> getListFromBase64File(final String fileBase64) {
-
-        return separarCaracteres(createFluxFrom(fileBase64));
-
+        return createFluxFrom(fileBase64)
+                .map(line -> separarCaracteres(line))
+                .map(modelCoupon -> validaColumnaVacia(modelCoupon))
+                .map(couponDetailDto -> validaCodigoDuplicado(couponDetailDto))
+                .map(couponDetailDto1 -> validaFecha(couponDetailDto1));
     }
 
-    private static Flux<CouponDetailDto> separarCaracteres(Flux<String > lineaASeparar){
-        AtomicInteger counter = new AtomicInteger(0);
-        String characterSeparated = FileCSVEnum.CHARACTER_DEFAULT.getId();
-        Set<String> codes = new HashSet<>();
-            return lineaASeparar.skip(1)
-                            .map(line -> getTupleOfLine(line, line.split(characterSeparated), characterSeparated))
-                            .map(tuple -> validarErroresDelBono(counter,codes,tuple));
-    }
-
-    private static CouponDetailDto validarErroresDelBono(AtomicInteger counter, Set<String> codes, Tuple2<String, String> tuple){
-        String dateValidated = null;
-        String errorMessage;
-        String bonoForObject;
-        String bonoEnviado;
-
-        errorMessage = fileError(codes, tuple); //asigno cuando coloco la variable y el signo = y el metodo que le he creado
-        if (errorMessage.equals(null)){
-            dateValidated = tuple.getT2(); // si el fileError llega null, se lo asigna a dateValidate
-        }
-
-        bonoEnviado = tuple.getT1();
-        bonoForObject = bonoIsSend(bonoEnviado);
-
-        return CouponDetailDto.aCouponDetailDto()
-                .withCode(bonoForObject)
-                .withDueDate(dateValidated)
+    public static CouponDetailDto validaColumnaVacia(ModelCoupon modelCoupon){
+        return Optional.of(modelCoupon)
+                .filter(coupon -> coupon.getCodigo().isBlank()|| coupon.getFecha().isBlank())
+                .map(modelCoupon1 -> CouponDetailDto.aCouponDetailDto()
+                .withCode(null)
+                .withDueDate(null)
                 .withNumberLine(counter.incrementAndGet())
-                .withMessageError(errorMessage)
                 .withTotalLinesFile(1)
-                .build();
+                .withMessageError(ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString()))
+                .orElseGet(() -> CouponDetailDto.aCouponDetailDto()
+                        .withCode(modelCoupon.getCodigo())
+                        .withDueDate(modelCoupon.getFecha())
+                        .withNumberLine(counter.incrementAndGet())
+                        .withTotalLinesFile(1)
+                        .withMessageError(""));
+
     }
 
-    private static String fileError(Set<String> codes, Tuple2<String, String> tuple) {
-       //esta es una forma de transformar un condicional anidado (varios if else) para reducir la complejidad ciclomatica.
-        // o mejorar el flujo de datos
-        Map<String, Boolean> error = new LinkedHashMap<String, Boolean>();
+    private static ModelCoupon separarCaracteres(String lineaASeparar) {
 
-        error.put(ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString(),compara2Objetos(tuple));
-        error.put(ExperienceErrorsEnum.FILE_ERROR_CODE_DUPLICATE.toString(),!codes.add(tuple.getT1()));
-        error.put(ExperienceErrorsEnum.FILE_ERROR_DATE_PARSE.toString(),!validateDateRegex(tuple.getT2()));
-        error.put(ExperienceErrorsEnum.FILE_DATE_IS_MINOR_OR_EQUALS.toString(),validateDateIsMinor(tuple.getT2()));
+        var columns = List.of(lineaASeparar.split(CHARACTER_SEPARATED));
 
-        for (Map.Entry<String, Boolean> bonoError :
-                error.entrySet()) {
-            if (bonoError.getValue()){ //aqui devuelve un booleano
-                return bonoError.getKey(); //aqui devuelve la llave en este caso el error/--/la llave no se repite, en este caso se pone como llave el error porque el no se va a repetir.
-            }
-        }
-
-        return null;
+        return Optional.of(columns)
+                .filter(HelperKata::hasAllColumns)
+                .map(columnFile -> new ModelCoupon(columnFile.get(0), columnFile.get(1)))
+                //.map(line -> getTupleOfLine(line, line.split(characterSeparated), characterSeparated))
+                .orElseGet(() -> validaColumnaVacia(lineaASeparar));
     }
 
-    private static boolean compara2Objetos(Tuple2<String, String> tuple) {
-        return tuple.getT1().isBlank() || tuple.getT2().isBlank();
+    private static ModelCoupon validaColumnaVacia(String lineaASeparar) {
+        var columns = List.of(lineaASeparar.split(CHARACTER_SEPARATED));
+        return Optional.of(lineaASeparar)
+                .filter(HelperKata::hasCode)
+                .map(lineWithCode -> new ModelCoupon(columns.get(0),EMPTY_STRING))
+                .orElseGet(() -> new ModelCoupon(EMPTY_STRING,columns.get(0)));
     }
 
-    private static String bonoIsSend(String bonoEnviado) {
-
-        String bonoForObject = null;
-
-        if (isBonoNull(bonoEnviado)) {
-            ANTERIOR_BONO = typeBono(bonoEnviado);
-            bonoForObject = bonoEnviado;
-        }
-
-        return bonoForObject;
+    private static CouponDetailDto validaCodigoDuplicado(CouponDetailDto couponDetailDto){
+        return Optional.ofNullable(couponDetailDto.getCode())
+                .filter(code -> !codes.add(code))
+                .map(c -> couponDetailDto
+                        .withMessageError(ExperienceErrorsEnum.FILE_ERROR_CODE_DUPLICATE.toString()))
+                .orElseGet(() -> couponDetailDto);
     }
 
-    private static boolean isBonoNull(String bonoEnviado) {
-        return ANTERIOR_BONO == null || ANTERIOR_BONO.equals(typeBono(bonoEnviado));
+
+    private static CouponDetailDto validaFecha(CouponDetailDto couponDetailDto){
+        return Optional.ofNullable(couponDetailDto.getDueDate())
+                .filter(date -> !validateDateRegex(date))
+                .map(date -> couponDetailDto.withDueDate(null))
+                .filter(coupon -> couponDetailDto.getMessageError().isBlank())
+                .map(c -> couponDetailDto
+                        .withMessageError(ExperienceErrorsEnum.FILE_ERROR_DATE_PARSE.toString()))
+                .orElseGet(() -> validateDateIsMinor(couponDetailDto));
     }
+
+    private static CouponDetailDto validateDateIsMinor(CouponDetailDto couponDetailDto) {
+        return Optional.ofNullable(couponDetailDto.getDueDate())
+                .filter(HelperKata::validateDateIsMinor)
+                .map(date -> couponDetailDto.withDueDate(null))
+                .filter(coupon -> coupon.getMessageError().isBlank())
+                .map(couponDetailDto1 -> couponDetailDto.withMessageError(ExperienceErrorsEnum.FILE_DATE_IS_MINOR_OR_EQUALS.toString())
+                .build())
+                .orElseGet(() -> couponDetailDto.build());
+
+    }
+
+
+    private static boolean hasAllColumns(List<String> columns) {
+            return columns
+                    .stream()
+                    .noneMatch(String::isBlank);
+    }
+
+    private static boolean hasCode(String line) {
+        return !line.startsWith(CHARACTER_SEPARATED);
+    }
+
 
     private static Flux<String> createFluxFrom(String fileBase64) {
         return Flux.using(
                 () -> new BufferedReader(new InputStreamReader(
                         new ByteArrayInputStream(decodeBase64(fileBase64))
-                )).lines(),
+                )).lines().skip(1),
                 Flux::fromStream,
                 Stream::close
         );
     }
 
     public static String typeBono(String bonoIn) {
-      return  validateEan13(bonoIn)
-              ? ValidateCouponEnum.EAN_13.getTypeOfEnum()
-               : validateAlphanumeric(bonoIn);
+        return validateEan13(bonoIn)
+                ? ValidateCouponEnum.EAN_13.getTypeOfEnum()
+                : validateAlphanumeric(bonoIn);
     }
 
     private static String validateAlphanumeric(String bonoIn) {
@@ -121,21 +128,21 @@ public class HelperKata {
     private static boolean validateEan39(String bonoIn) {
         return bonoIn.startsWith("*")
                 && tamañoCodigoBonoMayorQue(bonoIn.replace("*", "").length(), 1)
-                && tamañoCodigoBonoMenorQue(bonoIn.replace("*", "").length(),43);
+                && tamañoCodigoBonoMenorQue(bonoIn.replace("*", "").length(), 43);
     }
 
     private static boolean validateEan13(String bonoIn) {
         return bonoIn.chars().allMatch(Character::isDigit)
-                  && tamañoCodigoBonoMayorQue(bonoIn.length(), 12)
-                  && tamañoCodigoBonoMenorQue(bonoIn.length(), 13);
+                && tamañoCodigoBonoMayorQue(bonoIn.length(), 12)
+                && tamañoCodigoBonoMenorQue(bonoIn.length(), 13);
     }
 
-    private static boolean tamañoCodigoBonoMayorQue(int bonoLength, int number){
+    private static boolean tamañoCodigoBonoMayorQue(int bonoLength, int number) {
         return bonoLength >= number;
     }
 
 
-    private static boolean tamañoCodigoBonoMenorQue(int bonoLength, int number){
+    private static boolean tamañoCodigoBonoMenorQue(int bonoLength, int number) {
         return bonoLength <= number;
     }
 
@@ -151,30 +158,12 @@ public class HelperKata {
 
     }
 
-    private static Tuple2<String, String> getTupleOfLine(String line, String[] array, String characterSeparated) {
-        return Objects.isNull(array) || array.length == 0
-                ? Tuples.of(EMPTY_STRING, EMPTY_STRING)
-                : comparaTuplas2(line, array, characterSeparated);
-    }
-
-    private static Tuple2<String, String> comparaTuplas2(String line, String[] array, String characterSeparated) {
-        return array.length < 2
-        ? comparaTuplas(line, array, characterSeparated)
-        : Tuples.of(array[0], array[1]);
-    }
-
-    private static Tuple2<String, String> comparaTuplas(String line, String[] array, String characterSeparated) {
-        return line.startsWith(characterSeparated)
-                ? Tuples.of(EMPTY_STRING, array[0])
-                : Tuples.of(array[0], EMPTY_STRING);
-    }
-
     public static boolean validateDateIsMinor(String dateForValidate) {
         try {
             SimpleDateFormat sdf = new SimpleDateFormat(FileCSVEnum.PATTERN_SIMPLE_DATE_FORMAT.getId());
             Date dateActual = sdf.parse(sdf.format(new Date()));
             Date dateCompare = sdf.parse(dateForValidate);
-            return tamañoCodigoBonoMenorQue(dateCompare.compareTo(dateActual),0 );
+            return tamañoCodigoBonoMenorQue(dateCompare.compareTo(dateActual), 0);
         } catch (Exception e) {
             e.printStackTrace();
         }

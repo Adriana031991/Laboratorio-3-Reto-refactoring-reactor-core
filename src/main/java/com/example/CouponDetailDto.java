@@ -79,4 +79,24 @@ public class CouponDetailDto {
                 ", totalLinesFile=" + totalLinesFile +
                 '}';
     }
+
+    public String  getCode() {
+        return code;
+    }
+
+    public String getDueDate() {
+        return dueDate;
+    }
+
+    public int getNumberLine() {
+        return numberLine;
+    }
+
+    public String getMessageError() {
+        return messageError;
+    }
+
+    public int getTotalLinesFile() {
+        return totalLinesFile;
+    }
 }
